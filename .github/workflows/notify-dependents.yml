@@ -10,26 +10,32 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Devin to update dependent services
+      - name: Create issue in service repo to trigger Devin
         env:
-          DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
         run: |
-          # Extract PR details
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY=$(cat <<'PRBODY'
-          ${{ github.event.pull_request.body }}
-          PRBODY
-          )
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          
+          gh issue create \
+            --repo cogdeasy/demos-demo-service \
+            --title "chore: update demos-demo-library (from PR #${PR_NUMBER})" \
+            --body "@devin-ai-integration 
 
-          # Create Devin session to update demos-demo-service
-          curl -X POST "https://api.devin.ai/v1/sessions" \
-            -H "Authorization: Bearer ${DEVIN_API_KEY}" \
-            -H "Content-Type: application/json" \
-            -d @- <<EOF
-          {
-            "prompt": "A library PR was merged to cogdeasy/demos-demo-library.\n\nPR #${PR_NUMBER}: ${PR_TITLE}\n\nPR Description:\n${PR_BODY}\n\nYour task:\n1. Clone cogdeasy/demos-demo-service\n2. Update the library version in pom.xml to the new version\n3. Parse the 'Service Update Instructions' section from the PR description above\n4. Add any new configuration properties to application.properties or application.yml\n5. If there are feature toggles, add them with their default values (usually disabled)\n6. Run tests to verify the update works\n7. Create a PR with title 'chore: bump demos-demo-library to [version]' and include details of config changes\n\nNever wait for user confirmation. Complete the task autonomously."
-          }
-          EOF
+## Library Update Required
 
-          echo "Devin session triggered for service updates"
+A library PR was merged to cogdeasy/demos-demo-library:
+- **PR**: #${PR_NUMBER} - ${PR_TITLE}
+- **Link**: ${PR_URL}
+
+## Task
+1. Update the library version in pom.xml to the latest version
+2. Check the library PR description for any new configuration properties
+3. Add any new config properties to application.properties or application.yml
+4. If there are feature toggles, add them disabled by default
+5. Run tests to verify the update works
+6. Create a PR with the changes
+
+## Library PR Description
+${{ github.event.pull_request.body }}"
