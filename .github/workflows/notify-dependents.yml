@@ -10,32 +10,18 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Create issue in service repo to trigger Devin
+      - name: Trigger Devin to update dependent services
         env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+          DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
           
-          gh issue create \
-            --repo cogdeasy/demos-demo-service \
-            --title "chore: update demos-demo-library (from PR #${PR_NUMBER})" \
-            --body "@devin-ai-integration 
-
-## Library Update Required
-
-A library PR was merged to cogdeasy/demos-demo-library:
-- **PR**: #${PR_NUMBER} - ${PR_TITLE}
-- **Link**: ${PR_URL}
-
-## Task
-1. Update the library version in pom.xml to the latest version
-2. Check the library PR description for any new configuration properties
-3. Add any new config properties to application.properties or application.yml
-4. If there are feature toggles, add them disabled by default
-5. Run tests to verify the update works
-6. Create a PR with the changes
-
-## Library PR Description
-${{ github.event.pull_request.body }}"
+          curl -X POST "https://api.devin.ai/v1/sessions" \
+            -H "Authorization: Bearer ${DEVIN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"prompt\": \"Library PR #${PR_NUMBER} (${PR_TITLE}) was merged to cogdeasy/demos-demo-library.\\n\\nYour task:\\n1. Clone cogdeasy/demos-demo-service\\n2. Update the library version in pom.xml to the latest release\\n3. Check the merged PR description for new configuration properties or feature toggles\\n4. Add any new config to application.properties (toggles disabled by default)\\n5. Run tests to verify\\n6. Create a PR titled 'chore: bump demos-demo-library'\\n\\nLibrary PR: https://github.com/cogdeasy/demos-demo-library/pull/${PR_NUMBER}\\n\\nComplete autonomously without waiting for confirmation.\"
+            }"
+          
+          echo "Devin session triggered for service updates"
