@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Trigger Devin to update dependent services
         env:
-          DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+          DEVIN_API_KEY: ${{ secrets.POD_SIX }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
