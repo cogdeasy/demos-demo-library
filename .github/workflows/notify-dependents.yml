@@ -13,11 +13,12 @@ jobs:
       - name: Trigger Devin to update dependent services
         env:
           DEVIN_API_KEY: ${{ secrets.POD_SIX }}
+          DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
           
-          curl -X POST "https://api.devin.ai/v1/sessions" \
+          curl -X POST "https://api.devin.ai/v3beta1/organizations/${DEVIN_ORG_ID}/sessions" \
             -H "Authorization: Bearer ${DEVIN_API_KEY}" \
             -H "Content-Type: application/json" \
             -d "{
