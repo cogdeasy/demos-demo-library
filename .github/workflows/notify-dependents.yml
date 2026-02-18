@@ -1,0 +1,35 @@
+name: Notify Dependent Services
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  trigger-service-updates:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Devin to update dependent services
+        env:
+          DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+        run: |
+          # Extract PR details
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_BODY=$(cat <<'PRBODY'
+          ${{ github.event.pull_request.body }}
+          PRBODY
+          )
+
+          # Create Devin session to update demos-demo-service
+          curl -X POST "https://api.devin.ai/v1/sessions" \
+            -H "Authorization: Bearer ${DEVIN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @- <<EOF
+          {
+            "prompt": "A library PR was merged to cogdeasy/demos-demo-library.\n\nPR #${PR_NUMBER}: ${PR_TITLE}\n\nPR Description:\n${PR_BODY}\n\nYour task:\n1. Clone cogdeasy/demos-demo-service\n2. Update the library version in pom.xml to the new version\n3. Parse the 'Service Update Instructions' section from the PR description above\n4. Add any new configuration properties to application.properties or application.yml\n5. If there are feature toggles, add them with their default values (usually disabled)\n6. Run tests to verify the update works\n7. Create a PR with title 'chore: bump demos-demo-library to [version]' and include details of config changes\n\nNever wait for user confirmation. Complete the task autonomously."
+          }
+          EOF
+
+          echo "Devin session triggered for service updates"
