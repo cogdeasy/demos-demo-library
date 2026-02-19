@@ -4,29 +4,43 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to process'
+        required: true
+      pr_title:
+        description: 'PR title'
+        required: true
+      pr_body:
+        description: 'PR body with service update instructions'
+        required: true
 
 jobs:
   trigger-service-updates:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Devin to update dependent services
         env:
           DEVIN_API_KEY: ${{ secrets.POD_SIX }}
           DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BODY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_body || github.event.pull_request.body }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+            PR_TITLE="${{ github.event.inputs.pr_title }}"
+          else
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_TITLE="${{ github.event.pull_request.title }}"
+          fi
           PR_URL="https://github.com/cogdeasy/demos-demo-library/pull/${PR_NUMBER}"
           
-          # List of dependent services
           SERVICES=("cogdeasy/demos-demo-service")
           
           for SERVICE in "${SERVICES[@]}"; do
             echo "Triggering Devin for ${SERVICE}..."
             
-            # Create detailed prompt with PR body included
             PROMPT="A library PR was merged to cogdeasy/demos-demo-library that requires updates to dependent services.
 
 ## Library PR Details
@@ -50,7 +64,6 @@ ${PR_BODY}
 
 Complete autonomously without waiting for confirmation."
 
-            # Escape the prompt for JSON
             ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs .)
             
             curl -X POST "https://api.devin.ai/v3beta1/organizations/${DEVIN_ORG_ID}/sessions" \
