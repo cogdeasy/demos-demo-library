@@ -4,72 +4,46 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: 'PR number to process'
-        required: true
-      pr_title:
-        description: 'PR title'
-        required: true
-      pr_body:
-        description: 'PR body with service update instructions'
-        required: true
 
 jobs:
   trigger-service-updates:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Devin to update dependent services
         env:
           DEVIN_API_KEY: ${{ secrets.POD_SIX }}
           DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
-          PR_BODY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_body || github.event.pull_request.body }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            PR_NUMBER="${{ github.event.inputs.pr_number }}"
-            PR_TITLE="${{ github.event.inputs.pr_title }}"
-          else
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            PR_TITLE="${{ github.event.pull_request.title }}"
-          fi
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
           PR_URL="https://github.com/cogdeasy/demos-demo-library/pull/${PR_NUMBER}"
           
-          SERVICES=("cogdeasy/demos-demo-service")
+          # Get PR body via API to avoid shell escaping issues
+          PR_BODY=$(gh pr view ${PR_NUMBER} --repo cogdeasy/demos-demo-library --json body --jq '.body')
           
-          for SERVICE in "${SERVICES[@]}"; do
+          SERVICES="cogdeasy/demos-demo-service"
+          
+          for SERVICE in $SERVICES; do
             echo "Triggering Devin for ${SERVICE}..."
             
-            PROMPT="A library PR was merged to cogdeasy/demos-demo-library that requires updates to dependent services.
-
-## Library PR Details
-- PR: #${PR_NUMBER} - ${PR_TITLE}
-- URL: ${PR_URL}
-
-## PR Description (contains Service Update Instructions)
-${PR_BODY}
-
-## Your Task for ${SERVICE}
-1. Clone ${SERVICE}
-2. Read the 'Service Update Instructions' section above carefully
-3. Update the library version in pom.xml to the version specified (look for 'Version:' in the PR description)
-4. Add any new configuration properties listed under 'New Configuration Properties' to src/main/resources/application.properties
-5. Add any feature toggles listed under 'Feature Toggles' to application.properties (disabled by default)
-6. If there are breaking changes, update the service code accordingly
-7. Follow any additional migration steps listed
-8. Run 'mvn compile' to verify the changes work
-9. Create a PR with title 'chore: bump demos-demo-library to [version]'
-10. In the PR description, list all changes made (version bump, new properties, etc.)
-
-Complete autonomously without waiting for confirmation."
-
-            ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs .)
+            # Build prompt as JSON directly
+            jq -n \
+              --arg pr_num "$PR_NUMBER" \
+              --arg pr_title "$PR_TITLE" \
+              --arg pr_url "$PR_URL" \
+              --arg pr_body "$PR_BODY" \
+              --arg service "$SERVICE" \
+              '{prompt: "A library PR was merged to cogdeasy/demos-demo-library.\n\n## Library PR Details\n- PR: #\($pr_num) - \($pr_title)\n- URL: \($pr_url)\n\n## PR Description (contains Service Update Instructions)\n\($pr_body)\n\n## Your Task for \($service)\n1. Clone \($service)\n2. Read the Service Update Instructions section above\n3. Update the library version in pom.xml to the version specified\n4. Add any new configuration properties to src/main/resources/application.properties\n5. Add any feature toggles to application.properties (disabled by default)\n6. Run mvn compile to verify\n7. Create a PR with title chore: bump demos-demo-library to [version]\n\nComplete autonomously without waiting for confirmation."}' \
+              > /tmp/payload.json
             
             curl -X POST "https://api.devin.ai/v3beta1/organizations/${DEVIN_ORG_ID}/sessions" \
               -H "Authorization: Bearer ${DEVIN_API_KEY}" \
               -H "Content-Type: application/json" \
-              -d "{\"prompt\": ${ESCAPED_PROMPT}}"
+              -d @/tmp/payload.json
             
+            echo ""
             echo "Devin session triggered for ${SERVICE}"
           done
+        env:
+          GH_TOKEN: ${{ github.token }}
