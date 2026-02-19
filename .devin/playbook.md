@@ -5,7 +5,7 @@ This playbook is triggered by a scheduler to check for library updates and creat
 ## Instructions
 
 1. **Check Release Notes**
-   - Clone `cogdeasy/demos-demo-library`
+   - The library is already available in this repository
    - Read `RELEASE_NOTES.md` to find the latest version
    - Look at the "Services to Update" section - ONLY update services listed there
    - If no services are listed, do nothing and report "No services to update"
