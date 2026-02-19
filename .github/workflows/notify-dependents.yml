@@ -14,6 +14,7 @@ jobs:
         env:
           DEVIN_API_KEY: ${{ secrets.POD_SIX }}
           DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
@@ -45,5 +46,3 @@ jobs:
             echo ""
             echo "Devin session triggered for ${SERVICE}"
           done
-        env:
-          GH_TOKEN: ${{ github.token }}
