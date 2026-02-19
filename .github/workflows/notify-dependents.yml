@@ -10,6 +10,9 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout to get template
+        uses: actions/checkout@v4
+        
       - name: Trigger Devin to update dependent services
         env:
           DEVIN_API_KEY: ${{ secrets.POD_SIX }}
@@ -23,19 +26,23 @@ jobs:
           # Get PR body via API to avoid shell escaping issues
           PR_BODY=$(gh pr view ${PR_NUMBER} --repo cogdeasy/demos-demo-library --json body --jq '.body')
           
+          # Read the service update template
+          TEMPLATE=$(cat .devin/service-update-template.md)
+          
           SERVICES="cogdeasy/demos-demo-service cogdeasy/demos-demo-service-2"
           
           for SERVICE in $SERVICES; do
             echo "Triggering Devin for ${SERVICE}..."
             
-            # Build prompt as JSON directly with multi-language support
+            # Build prompt with template reference
             jq -n \
               --arg pr_num "$PR_NUMBER" \
               --arg pr_title "$PR_TITLE" \
               --arg pr_url "$PR_URL" \
               --arg pr_body "$PR_BODY" \
               --arg service "$SERVICE" \
-              '{prompt: "A library PR was merged to cogdeasy/demos-demo-library.\n\n## Library PR Details\n- PR: #\($pr_num) - \($pr_title)\n- URL: \($pr_url)\n\n## PR Description (contains Service Update Instructions)\n\($pr_body)\n\n## Your Task for \($service)\n\n1. Clone \($service)\n2. Detect the project type:\n   - If pom.xml exists: Java/Maven project\n   - If requirements.txt exists: Python project\n3. Read the Service Update Instructions section above\n\n### For Java Services (pom.xml):\n- Update library version in pom.xml\n- Add feature toggles to src/main/resources/application.properties\n- Run mvn compile to verify\n\n### For Python Services (requirements.txt):\n- Update library_version in app/config.py\n- Add feature toggles as new settings in app/config.py Settings class\n- Update .env.example with new environment variables\n- If new operations added, update app/math_operations.py and app/main.py\n\n4. Create a PR with title: chore: bump demos-demo-library to [version]\n5. In PR description, list all changes made\n\nComplete autonomously without waiting for confirmation."}' \
+              --arg template "$TEMPLATE" \
+              '{prompt: "A library PR was merged to cogdeasy/demos-demo-library.\n\n## Library PR Details\n- PR: #\($pr_num) - \($pr_title)\n- URL: \($pr_url)\n\n## PR Description\n\($pr_body)\n\n## Service Update Template\nFollow this template exactly when updating the service:\n\n\($template)\n\n## Your Task\nUpdate \($service) following the template above.\n\nComplete autonomously without waiting for confirmation."}' \
               > /tmp/payload.json
             
             curl -X POST "https://api.devin.ai/v3beta1/organizations/${DEVIN_ORG_ID}/sessions" \
