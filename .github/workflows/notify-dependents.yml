@@ -14,15 +14,49 @@ jobs:
         env:
           DEVIN_API_KEY: ${{ secrets.POD_SIX }}
           DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="https://github.com/cogdeasy/demos-demo-library/pull/${PR_NUMBER}"
           
-          curl -X POST "https://api.devin.ai/v3beta1/organizations/${DEVIN_ORG_ID}/sessions" \
-            -H "Authorization: Bearer ${DEVIN_API_KEY}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"prompt\": \"Library PR #${PR_NUMBER} (${PR_TITLE}) was merged to cogdeasy/demos-demo-library.\\n\\nYour task:\\n1. Clone cogdeasy/demos-demo-service\\n2. Update the library version in pom.xml to the latest release\\n3. Check the merged PR description for new configuration properties or feature toggles\\n4. Add any new config to application.properties (toggles disabled by default)\\n5. Run tests to verify\\n6. Create a PR titled 'chore: bump demos-demo-library'\\n\\nLibrary PR: https://github.com/cogdeasy/demos-demo-library/pull/${PR_NUMBER}\\n\\nComplete autonomously without waiting for confirmation.\"
-            }"
+          # List of dependent services
+          SERVICES=("cogdeasy/demos-demo-service")
           
-          echo "Devin session triggered for service updates"
+          for SERVICE in "${SERVICES[@]}"; do
+            echo "Triggering Devin for ${SERVICE}..."
+            
+            # Create detailed prompt with PR body included
+            PROMPT="A library PR was merged to cogdeasy/demos-demo-library that requires updates to dependent services.
+
+## Library PR Details
+- PR: #${PR_NUMBER} - ${PR_TITLE}
+- URL: ${PR_URL}
+
+## PR Description (contains Service Update Instructions)
+${PR_BODY}
+
+## Your Task for ${SERVICE}
+1. Clone ${SERVICE}
+2. Read the 'Service Update Instructions' section above carefully
+3. Update the library version in pom.xml to the version specified (look for 'Version:' in the PR description)
+4. Add any new configuration properties listed under 'New Configuration Properties' to src/main/resources/application.properties
+5. Add any feature toggles listed under 'Feature Toggles' to application.properties (disabled by default)
+6. If there are breaking changes, update the service code accordingly
+7. Follow any additional migration steps listed
+8. Run 'mvn compile' to verify the changes work
+9. Create a PR with title 'chore: bump demos-demo-library to [version]'
+10. In the PR description, list all changes made (version bump, new properties, etc.)
+
+Complete autonomously without waiting for confirmation."
+
+            # Escape the prompt for JSON
+            ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs .)
+            
+            curl -X POST "https://api.devin.ai/v3beta1/organizations/${DEVIN_ORG_ID}/sessions" \
+              -H "Authorization: Bearer ${DEVIN_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"prompt\": ${ESCAPED_PROMPT}}"
+            
+            echo "Devin session triggered for ${SERVICE}"
+          done
