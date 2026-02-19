@@ -82,6 +82,7 @@ This repository includes automation that triggers [Devin AI](https://devin.ai) t
 ### Dependent Services
 
 - [demos-demo-service](https://github.com/cogdeasy/demos-demo-service)
+- [demos-demo-service-2](https://github.com/cogdeasy/demos-demo-service-2)
 
 ## Contributing
 

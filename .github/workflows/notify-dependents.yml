@@ -23,7 +23,7 @@ jobs:
           # Get PR body via API to avoid shell escaping issues
           PR_BODY=$(gh pr view ${PR_NUMBER} --repo cogdeasy/demos-demo-library --json body --jq '.body')
           
-          SERVICES="cogdeasy/demos-demo-service"
+          SERVICES="cogdeasy/demos-demo-service cogdeasy/demos-demo-service-2"
           
           for SERVICE in $SERVICES; do
             echo "Triggering Devin for ${SERVICE}..."
