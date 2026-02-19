@@ -4,6 +4,7 @@ public class MathConfig {
     
     private boolean additionEnabled = true;
     private boolean subtractionEnabled = false;
+    private boolean multiplicationEnabled = false;
 
     public boolean isAdditionEnabled() {
         return additionEnabled;
@@ -19,5 +20,13 @@ public class MathConfig {
 
     public void setSubtractionEnabled(boolean subtractionEnabled) {
         this.subtractionEnabled = subtractionEnabled;
+    }
+
+    public boolean isMultiplicationEnabled() {
+        return multiplicationEnabled;
+    }
+
+    public void setMultiplicationEnabled(boolean multiplicationEnabled) {
+        this.multiplicationEnabled = multiplicationEnabled;
     }
 }
